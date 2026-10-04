@@ -1,0 +1,4 @@
+# Exécution du pipeline complet (collecte, prétraitement, entraînement) toutes les 3 minutes.
+# Installation : crontab scripts/cron.txt
+# Cron exige des chemins absolus : adapter le chemin ci-dessous à l'emplacement du projet.
+*/3 * * * * cd /home/ubuntu/exam_BICHON/exam_bash && make bash >> logs/cron.logs 2>&1
