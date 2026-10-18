@@ -34,9 +34,9 @@ set -euo pipefail
 # quel que soit le répertoire depuis lequel le script est lancé (cron, make...).
 cd "$(dirname "$0")/.."
 
-# L'URL de l'API peut être surchargée par la variable d'environnement API_URL.
+
 API_URL="${API_URL:-http://0.0.0.0:5000}"
-MODELS="rtx3060 rtx3070 rtx3080 rtx3090 rx6700"
+MODELS=(rtx3060 rtx3070 rtx3080 rtx3090 rx6700)
 
 RAW_DIR="data/raw"
 SOURCE_FILE="${RAW_DIR}/sales_data.csv"
@@ -46,6 +46,8 @@ LOG_FILE="logs/collect.logs"
 mkdir -p "${RAW_DIR}" "$(dirname "${LOG_FILE}")"
 
 # Écrit un message horodaté dans le fichier de log et sur la sortie standard.
+# Le log est en heure locale, comme les autres logs du pipeline ; les données,
+# elles, sont horodatées en UTC (format de sales_data.csv).
 log() {
     local level="$1"
     shift
@@ -67,8 +69,9 @@ base_file="${base_file:-${SOURCE_FILE}}"
 
 # Interrogation de l'API pour chaque modèle.
 new_rows=""
+nb_rows=0
 errors=0
-for model in ${MODELS}; do
+for model in "${MODELS[@]}"; do
     timestamp="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
     log INFO "Requête : GET ${API_URL}/${model}"
 
@@ -86,8 +89,9 @@ for model in ${MODELS}; do
         continue
     fi
 
-    log INFO "Modèle ${model} : ${sales} ventes récupérées"
+    log INFO "Modèle ${model} : ${sales} ventes récupérées (horodatage ${timestamp})"
     new_rows+="${timestamp},${model},${sales}"$'\n'
+    nb_rows=$((nb_rows + 1))
 done
 
 if [[ -z "${new_rows}" ]]; then
@@ -107,6 +111,5 @@ if [[ -n "$(tail -c 1 "${OUTPUT_FILE}")" ]]; then
 fi
 printf '%s' "${new_rows}" >> "${OUTPUT_FILE}"
 
-nb_rows="$(printf '%s' "${new_rows}" | wc -l | tr -d ' ')"
 log INFO "${nb_rows} ligne(s) ajoutée(s) dans ${OUTPUT_FILE} (${errors} erreur(s))"
 log INFO "=== Fin de la collecte ==="
